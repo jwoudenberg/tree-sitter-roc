@@ -1,21 +1,32 @@
 {
   inputs = {
-    nixpkgs = { url = "nixpkgs-unstable"; };
+    nixpkgs = {
+      url = "nixpkgs-unstable";
+    };
     flake-utils.url = "github:numtide/flake-utils";
     flake-compat = {
       url = "github:edolstra/flake-compat";
       flake = false;
     };
   };
-  outputs = { self, nixpkgs, flake-utils, ... }@inputs:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      flake-utils,
+      ...
+    }@inputs:
     let
-     defaultPackage = pkgs: pkgs.callPackage (nixpkgs + "/pkgs/development/tools/parsing/tree-sitter/grammar.nix") { } {
-       language = "roc";
-       src = ./.;
-       inherit (pkgs.tree-sitter) version;
-     };
+      defaultPackage =
+        pkgs:
+        pkgs.callPackage (nixpkgs + "/pkgs/development/tools/parsing/tree-sitter/grammar.nix") { } {
+          language = "roc";
+          src = ./.;
+          inherit (pkgs.tree-sitter) version;
+        };
     in
-    (flake-utils.lib.eachDefaultSystem (system:
+    (flake-utils.lib.eachDefaultSystem (
+      system:
       let
         pkgs = import nixpkgs {
           inherit system;
@@ -25,7 +36,15 @@
             })
           ];
         };
-      in {
+
+        treeSitterGrammar = pkgs.tree-sitter.buildGrammar {
+          language = "roc";
+          version = "0.0.0";
+          src = ./.;
+          meta.homepage = "https://github.com/faldor20/tree-sitter-roc/tree/master";
+        };
+      in
+      {
         defaultPackage = defaultPackage pkgs;
         devShell = pkgs.mkShell {
           nativeBuildInputs = with pkgs; [
@@ -42,7 +61,14 @@
             # pkg-config
           ];
         };
-      }));
+        treeSitterGrammar = treeSitterGrammar;
+        neovimPlugin = pkgs.runCommand "tree-sitter-roc" { } ''
+          mkdir -p $out/parser
+          cp -r ${./neovim}/* $out
+          cp ${treeSitterGrammar}/parser $out/parser/roc.so
+        '';
+      }
+    ));
 
   # // (let pkgs = import nixpkgs { }; in { defaultPackage = defaultPackage pkgs; });
 
